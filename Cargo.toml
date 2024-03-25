@@ -28,7 +28,8 @@ chrono = { version = "0.4", features = ["serde"] }
 structopt = { version = "0.3", optional = true }
 url = "2.5"
 pretty_env_logger = { version = "0.5", optional = true }
-tokio = "1"
+tokio = { version = "^1", features = ["full", "rt-multi-thread"] }
+async-trait = "*"
 
 [features]
 cli = ["structopt", "pretty_env_logger"]

@@ -151,10 +151,10 @@
 //!
 //! ```edition2018
 //! # use crossref::*;
-//! # fn run() -> Result<()> {
+//! # async fn run() -> Result<()> {
 //! # let client = Crossref::builder().build()?;
 //! let works = client.member_works( WorksQuery::new("machine learning")
-//! .sort(Sort::Score).into_ident("member_id"))?;
+//! .sort(Sort::Score).into_ident("member_id")).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -184,10 +184,10 @@
 //!
 //! ```edition2018
 //! use crossref::{Crossref, WorksQuery, Work};
-//! # fn run() -> Result<(), crossref::Error> {
+//! # async fn run() -> Result<(), crossref::Error> {
 //! let client = Crossref::builder().build()?;
 //!
-//! let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).flat_map(|x|x.items).collect();
+//! let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).await.iter().flat_map(|x|x.items).collect();
 //!
 //! # Ok(())
 //! # }
@@ -197,10 +197,10 @@
 //!
 //! ```edition2018
 //! use crossref::{Crossref, WorksQuery, Work};
-//! # fn run() -> Result<(), crossref::Error> {
+//! # async fn run() -> Result<(), crossref::Error> {
 //! let client = Crossref::builder().build()?;
 //!
-//! let all_works: Vec<Work> = client.deep_page("Machine Learning").into_work_iter().collect();
+//! let all_works: Vec<Work> = client.deep_page("Machine Learning").await.into_work_iter ().collect();
 //!
 //! # Ok(())
 //! # }
@@ -214,10 +214,10 @@
 //!
 //! ```edition2018
 //! use crossref::{Crossref, Funders, WorksQuery, Work, WorkList};
-//! # fn run() -> Result<(), crossref::Error> {
+//! # async fn run() -> Result<(), crossref::Error> {
 //! let client = Crossref::builder().build()?;
 //!
-//! let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).collect();
+//! let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).await;
 //!
 //! # Ok(())
 //! # }
@@ -232,7 +232,7 @@
 //! let client = Crossref::builder().build()?;
 //!
 //! let all_works: Vec<Work> = client.deep_page(WorksQuery::default()
-//!         .into_combined_query::<Funders>("funder id"))
+//!         .into_combined_query::<Funders>("funder id")).await
 //!         .into_work_iter()
 //!         .collect();
 //!
@@ -277,6 +277,7 @@ pub(crate) use self::response::{Message, Response};
 use crate::error::ErrorKind;
 use crate::query::{FundersQuery, MembersQuery, ResourceComponent};
 use crate::response::{MessageType, Prefix};
+use async_trait::async_trait;
 use reqwest::{self, Client};
 use std::iter::FlatMap;
 use std::rc::Rc;
@@ -306,8 +307,8 @@ macro_rules! impl_combined_works_query {
         $(
         /// Return one page of the components's `Work` that match the query
         ///
-        pub fn $name(&self, ident: WorksIdentQuery) -> Result<WorkList> {
-            let resp = self.get_response(&$component::Works(ident))?;
+        pub async fn $name(&self, ident: WorksIdentQuery) -> Result<WorkList> {
+            let resp = self.get_response(&$component::Works(ident)).await?;
             get_item!(WorkList, resp.message, resp.message_type)
         })+
     };
@@ -343,10 +344,10 @@ impl Crossref {
     /// If it was a bad url, the server will return `Resource not found` a `ResourceNotFound` error will be returned in this case
     /// Also fails if the json response body could be parsed into `Response`
     /// Fails if there was an error in reqwest executing the request [::reqwest::RequestBuilder::send]
-    fn get_response<T: CrossrefQuery>(&self, query: &T) -> Result<Response> {
+    async fn get_response<T: CrossrefQuery>(&self, query: &T) -> Result<Response> {
         let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
         let url = query.to_url(&self.base_url)?;
-        let resp = rt.block_on(async { self.client.get(&url).send().await?.text().await })?;
+        let resp = self.client.get(&url).send().await?.text().await?;
         if resp.starts_with("Resource not found") {
             Err(ErrorKind::ResourceNotFound {
                 resource: Box::new(query.clone().resource_component()),
@@ -365,7 +366,7 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::{Crossref, WorksQuery, WorksFilter, FieldQuery};
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
     /// let query = WorksQuery::new("Machine Learning")
@@ -374,7 +375,7 @@ impl Crossref {
     ///     .field_query(FieldQuery::author("Some Author"))
     ///     .sort(crossref::Sort::Score);
     ///
-    /// let works = client.works(query)?;
+    /// let works = client.works(query).await?;
     ///
     /// # Ok(())
     /// # }
@@ -385,8 +386,8 @@ impl Crossref {
     /// This method fails if the `works` element expands to a bad route `ResourceNotFound`
     /// Fails if the response body doesn't have `message` field `MissingMessage`.
     /// Fails if anything else than a `WorkList` is returned as message `UnexpectedItem`
-    pub fn works<T: Into<WorkListQuery>>(&self, query: T) -> Result<WorkList> {
-        let resp = self.get_response(&query.into())?;
+    pub async fn works<T: Into<WorkListQuery>>(&self, query: T) -> Result<WorkList> {
+        let resp = self.get_response(&query.into()).await?;
         get_item!(WorkList, resp.message, resp.message_type)
     }
 
@@ -395,8 +396,10 @@ impl Crossref {
     /// # Errors
     /// This method fails if the doi could not identified `ResourceNotFound`
     ///
-    pub fn work(&self, doi: &str) -> Result<Work> {
-        let resp = self.get_response(&Works::Identifier(doi.to_string()))?;
+    pub async fn work(&self, doi: &str) -> Result<Work> {
+        let resp = self
+            .get_response(&Works::Identifier(doi.to_string()))
+            .await?;
         get_item!(Work, resp.message, resp.message_type).map(|x| *x)
     }
 
@@ -411,10 +414,10 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::{Crossref, WorksQuery, Work};
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
-    /// let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).flat_map(|x|x.items).collect();
+    /// let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).await.into_iter().flat_map(|x|x.items).collect();
     ///
     /// # Ok(())
     /// # }
@@ -427,10 +430,10 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::{Crossref, Funders, WorksQuery, Work, WorkList};
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
-    /// let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).collect();
+    /// let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).await.collect();
     ///
     /// # Ok(())
     /// # }
@@ -441,13 +444,12 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::{Crossref, Funders, WorksQuery, Work, WorkList};
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
     /// let all_works: Vec<Work> = client.deep_page(WorksQuery::default()
     ///         .into_combined_query::<Funders>("funder id"))
-    ///         .into_work_iter()
-    ///         .collect();
+    ///         .await;
     ///
     /// # Ok(())
     /// # }
@@ -459,31 +461,31 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::{Crossref, WorksQuery, WorksFilter};
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
     /// // request a next-cursor first
     /// let query = WorksQuery::new("Machine Learning")
     ///     .new_cursor();
     ///
-    /// let works = client.works(query.clone())?;
+    /// let works = client.works(query.clone()).await?;
     ///
     /// // this continues from where this first response stopped
     /// // if no more work items are available then a empty list will be returned
     /// let deep_works = client.works(
     ///     query.next_cursor(&works.next_cursor.unwrap())
-    /// )?;
+    /// ).await?;
     /// # Ok(())
     /// # }
     /// ```
     ///
-    pub fn deep_page<T: Into<WorkListQuery>>(&self, query: T) -> WorkListIterator {
+    pub async fn deep_page<T: Into<WorkListQuery>>(&self, query: T) -> Vec<WorkList> {
         WorkListIterator {
             query: query.into(),
             client: self,
             index: 0,
             finish_next_iteration: false,
-        }
+        }.process().await
     }
 
     /// Return the `Agency` that registers the `Work` identified by  the `doi`.
@@ -491,55 +493,65 @@ impl Crossref {
     /// # Errors
     /// This method fails if the doi could not identified `ResourceNotFound`
     ///
-    pub fn work_agency(&self, doi: &str) -> Result<WorkAgency> {
-        let resp = self.get_response(&Works::Agency(doi.to_string()))?;
+    pub async fn work_agency(&self, doi: &str) -> Result<WorkAgency> {
+        let resp = self.get_response(&Works::Agency(doi.to_string())).await?;
         get_item!(WorkAgency, resp.message, resp.message_type)
     }
 
     /// Return the matching `Funders` items.
-    pub fn funders(&self, funders: FundersQuery) -> Result<FunderList> {
-        let resp = self.get_response(&Funders::Query(funders))?;
+    pub async fn funders(&self, funders: FundersQuery) -> Result<FunderList> {
+        let resp = self.get_response(&Funders::Query(funders)).await?;
         get_item!(FunderList, resp.message, resp.message_type)
     }
 
     /// Return the `Funder` for the `id`
-    pub fn funder(&self, id: &str) -> Result<Funder> {
-        let resp = self.get_response(&Funders::Identifier(id.to_string()))?;
+    pub async fn funder(&self, id: &str) -> Result<Funder> {
+        let resp = self
+            .get_response(&Funders::Identifier(id.to_string()))
+            .await?;
         get_item!(Funder, resp.message, resp.message_type).map(|x| *x)
     }
 
     /// Return the matching `Members` items.
-    pub fn members(&self, members: MembersQuery) -> Result<MemberList> {
-        let resp = self.get_response(&Members::Query(members))?;
+    pub async fn members(&self, members: MembersQuery) -> Result<MemberList> {
+        let resp = self.get_response(&Members::Query(members)).await?;
         get_item!(MemberList, resp.message, resp.message_type)
     }
 
     /// Return the `Member` for the `id`
-    pub fn member(&self, member_id: &str) -> Result<Member> {
-        let resp = self.get_response(&Members::Identifier(member_id.to_string()))?;
+    pub async fn member(&self, member_id: &str) -> Result<Member> {
+        let resp = self
+            .get_response(&Members::Identifier(member_id.to_string()))
+            .await?;
         get_item!(Member, resp.message, resp.message_type).map(|x| *x)
     }
 
     /// Return the `Prefix` for the `id`
-    pub fn prefix(&self, id: &str) -> Result<Prefix> {
-        let resp = self.get_response(&Prefixes::Identifier(id.to_string()))?;
+    pub async fn prefix(&self, id: &str) -> Result<Prefix> {
+        let resp = self
+            .get_response(&Prefixes::Identifier(id.to_string()))
+            .await?;
         get_item!(Prefix, resp.message, resp.message_type)
     }
     /// Return a specific `Journal`
-    pub fn journal(&self, id: &str) -> Result<Journal> {
-        let resp = self.get_response(&Journals::Identifier(id.to_string()))?;
+    pub async fn journal(&self, id: &str) -> Result<Journal> {
+        let resp = self
+            .get_response(&Journals::Identifier(id.to_string()))
+            .await?;
         get_item!(Journal, resp.message, resp.message_type).map(|x| *x)
     }
 
     /// Return all available `Type`
-    pub fn types(&self) -> Result<TypeList> {
-        let resp = self.get_response(&Types::All)?;
+    pub async fn types(&self) -> Result<TypeList> {
+        let resp = self.get_response(&Types::All).await?;
         get_item!(TypeList, resp.message, resp.message_type)
     }
 
     /// Return the `Type` for the `id`
-    pub fn type_(&self, id: &Type) -> Result<CrossrefType> {
-        let resp = self.get_response(&Types::Identifier(id.id().to_string()))?;
+    pub async fn type_(&self, id: &Type) -> Result<CrossrefType> {
+        let resp = self
+            .get_response(&Types::Identifier(id.id().to_string()))
+            .await?;
         get_item!(Type, resp.message, resp.message_type)
     }
 
@@ -549,15 +561,16 @@ impl Crossref {
     ///
     /// ```edition2018
     /// use crossref::Crossref;
-    /// # fn run() -> Result<(), crossref::Error> {
+    /// # async fn run() -> Result<(), crossref::Error> {
     /// # let client = Crossref::builder().build()?;
     /// // this will return 10 random dois from the crossref api
-    /// let random_dois = client.random_dois(10)?;
+    /// let random_dois = client.random_dois(10).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn random_dois(&self, len: usize) -> Result<Vec<String>> {
+    pub async fn random_dois(&self, len: usize) -> Result<Vec<String>> {
         self.works(WorksQuery::random(len))
+            .await
             .map(|x| x.items.into_iter().map(|x| x.doi).collect())
     }
 }
@@ -658,6 +671,9 @@ impl CrossrefBuilder {
     }
 }
 
+
+
+
 /// Allows iterating of deep page work request
 pub struct WorkListIterator<'a> {
     /// the query
@@ -671,15 +687,22 @@ pub struct WorkListIterator<'a> {
 }
 impl<'a> WorkListIterator<'a> {
     /// convenience method to create a `WorkIterator`
-    pub fn into_work_iter(self) -> impl Iterator<Item = Work> + 'a {
-        self.flat_map(|x| x.items)
+    // pub fn into_work_iter(self) -> impl Iterator<Item = Work> + 'a {
+    //     self.flat_map(|x| x.items)
+    // }
+// }
+// impl<'a> Iterator for WorkListIterator<'a> {
+        // type Item = WorkList;
+
+    pub async fn process(&mut self) -> Vec<WorkList> {
+        let mut ret = vec![];
+        while let Some(x) = self.next().await {
+            ret.push(x);
+        }
+        ret
     }
-}
 
-impl<'a> Iterator for WorkListIterator<'a> {
-    type Item = WorkList;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    async fn next(&mut self) -> Option<WorkList> {
         if self.finish_next_iteration {
             return None;
         }
@@ -693,7 +716,7 @@ impl<'a> Iterator for WorkListIterator<'a> {
             }
         }
 
-        let resp = self.client.get_response(&self.query);
+        let resp = self.client.get_response(&self.query).await;
         if let Ok(resp) = resp {
             let worklist: Result<WorkList> = get_item!(WorkList, resp.message, resp.message_type);
             if let Ok(worklist) = worklist {
