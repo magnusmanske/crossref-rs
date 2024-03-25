@@ -345,7 +345,6 @@ impl Crossref {
     /// Also fails if the json response body could be parsed into `Response`
     /// Fails if there was an error in reqwest executing the request [::reqwest::RequestBuilder::send]
     async fn get_response<T: CrossrefQuery>(&self, query: &T) -> Result<Response> {
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
         let url = query.to_url(&self.base_url)?;
         let resp = self.client.get(&url).send().await?.text().await?;
         if resp.starts_with("Resource not found") {
