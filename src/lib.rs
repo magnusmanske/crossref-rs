@@ -105,15 +105,15 @@
 //!
 //! ```edition2018
 //! # use crossref::*;
-//! # fn run() -> Result<()> {
+//! # async fn run() -> Result<()> {
 //! # let client = Crossref::builder().build()?;
-//! let work = client.work("10.1037/0003-066X.59.1.29")?;
+//! let work = client.work("10.1037/0003-066X.59.1.29").await?;
 //!
-//! let agency = client.work_agency("10.1037/0003-066X.59.1.29")?;
+//! let agency = client.work_agency("10.1037/0003-066X.59.1.29").await?;
 //!
-//! let funder = client.funder("funder_id")?;
+//! let funder = client.funder("funder_id").await?;
 //!
-//! let member = client.member("member_id")?;
+//! let member = client.member("member_id").await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -122,12 +122,12 @@
 //!
 //! ```edition2018
 //! # use crossref::*;
-//! # fn run() -> Result<()> {
+//! # async fn run() -> Result<()> {
 //! # let client = Crossref::builder().build()?;
 //! let query = WorksQuery::new("Machine Learning");
 //!
 //! // one page of the matching results
-//! let works = client.works(query)?;
+//! let works = client.works(query).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -136,11 +136,11 @@
 //!
 //! ```edition2018
 //! # use crossref::*;
-//! # fn run() -> Result<()> {
+//! # async fn run() -> Result<()> {
 //! # let client = Crossref::builder().build()?;
 //!
 //! // one page of the matching results
-//! let works = client.works("Machine Learning")?;
+//! let works = client.works("Machine Learning").await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -163,11 +163,11 @@
 //!
 //! ```edition2018
 //! # use crossref::*;
-//! # fn run() -> Result<()> {
+//! # async fn run() -> Result<()> {
 //! # let client = Crossref::builder().build()?;
 //! let works = client.works(WorksQuery::new("machine learning")
 //!     .sort(Sort::Score)
-//!     .into_combined_query::<Members>("member_id"))?;
+//!     .into_combined_query::<Members>("member_id")).await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -187,20 +187,7 @@
 //! # async fn run() -> Result<(), crossref::Error> {
 //! let client = Crossref::builder().build()?;
 //!
-//! let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).await.iter().flat_map(|x|x.items).collect();
-//!
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! Which can be simplified to
-//!
-//! ```edition2018
-//! use crossref::{Crossref, WorksQuery, Work};
-//! # async fn run() -> Result<(), crossref::Error> {
-//! let client = Crossref::builder().build()?;
-//!
-//! let all_works: Vec<Work> = client.deep_page("Machine Learning").await.into_work_iter ().collect();
+//! let all_works: Vec<Work> = client.deep_page(WorksQuery::new("Machine Learning")).await.into_iter().flat_map(|x|x.items).collect();
 //!
 //! # Ok(())
 //! # }
@@ -224,16 +211,17 @@
 //! ```
 //! # Example
 //!
-//! Iterate over all `Work` items of a specfic funder directly.
+//! Iterate over all `Work` items of a specific funder directly.
 //!
 //! ```edition2018
 //! use crossref::{Crossref, Funders, WorksQuery, Work, WorkList};
-//! # fn run() -> Result<(), crossref::Error> {
+//! # async fn run() -> Result<(), crossref::Error> {
 //! let client = Crossref::builder().build()?;
 //!
 //! let all_works: Vec<Work> = client.deep_page(WorksQuery::default()
 //!         .into_combined_query::<Funders>("funder id")).await
-//!         .into_work_iter()
+//!         .into_iter()
+//!         .flat_map(|x| x.items)
 //!         .collect();
 //!
 //! # Ok(())
@@ -274,7 +262,6 @@ pub use self::response::{
 
 pub(crate) use self::response::{Message, Response};
 
-use crate::error::ErrorKind;
 use crate::query::{FundersQuery, MembersQuery, ResourceComponent};
 use crate::response::{MessageType, Prefix};
 use async_trait::async_trait;
@@ -287,17 +274,15 @@ macro_rules! get_item {
         if let Some(msg) = $value {
             match msg {
                 Message::$ident(item) => Ok(item),
-                _ => Err(ErrorKind::UnexpectedItem {
+                _ => Err(Error::UnexpectedItem {
                     expected: MessageType::$ident,
                     got: $got,
-                }
-                .into()),
+                }),
             }
         } else {
-            Err(ErrorKind::MissingMessage {
+            Err(Error::MissingMessage {
                 expected: MessageType::$ident,
-            }
-            .into())
+            })
         }
     };
 }
@@ -348,10 +333,9 @@ impl Crossref {
         let url = query.to_url(&self.base_url)?;
         let resp = self.client.get(&url).send().await?.text().await?;
         if resp.starts_with("Resource not found") {
-            Err(ErrorKind::ResourceNotFound {
+            Err(Error::ResourceNotFound {
                 resource: Box::new(query.clone().resource_component()),
-            }
-            .into())
+            })
         } else {
             Ok(serde_json::from_str(&resp)?)
         }
@@ -432,14 +416,14 @@ impl Crossref {
     /// # async fn run() -> Result<(), crossref::Error> {
     /// let client = Crossref::builder().build()?;
     ///
-    /// let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).await.collect();
+    /// let all_funder_work_list: Vec<WorkList> = client.deep_page(WorksQuery::default().into_combined_query::<Funders>("funder id")).await;
     ///
     /// # Ok(())
     /// # }
     /// ```
     /// # Example
     ///
-    /// Iterate over all `Work` items of a specfic funder directly.
+    /// Iterate over all `Work` items of a specific funder directly.
     ///
     /// ```edition2018
     /// use crossref::{Crossref, Funders, WorksQuery, Work, WorkList};
@@ -448,7 +432,10 @@ impl Crossref {
     ///
     /// let all_works: Vec<Work> = client.deep_page(WorksQuery::default()
     ///         .into_combined_query::<Funders>("funder id"))
-    ///         .await;
+    ///         .await
+    ///         .into_iter()
+    ///         .flat_map(|x| x.items)
+    ///         .collect();
     ///
     /// # Ok(())
     /// # }
@@ -484,7 +471,9 @@ impl Crossref {
             client: self,
             index: 0,
             finish_next_iteration: false,
-        }.process().await
+        }
+        .process()
+        .await
     }
 
     /// Return the `Agency` that registers the `Work` identified by  the `doi`.
@@ -641,7 +630,7 @@ impl CrossrefBuilder {
         if let Some(agent) = &self.user_agent {
             headers.insert(
                 header::USER_AGENT,
-                header::HeaderValue::from_str(agent).map_err(|_| ErrorKind::Config {
+                header::HeaderValue::from_str(agent).map_err(|_| Error::Config {
                     msg: format!("failed to create User Agent header for `{}`", agent),
                 })?,
             );
@@ -649,7 +638,7 @@ impl CrossrefBuilder {
         if let Some(token) = &self.plus_token {
             headers.insert(
                 header::AUTHORIZATION,
-                header::HeaderValue::from_str(token).map_err(|_| ErrorKind::Config {
+                header::HeaderValue::from_str(token).map_err(|_| Error::Config {
                     msg: format!("failed to create AUTHORIZATION header for `{}`", token),
                 })?,
             );
@@ -657,7 +646,7 @@ impl CrossrefBuilder {
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .build()
-            .map_err(|_| ErrorKind::Config {
+            .map_err(|_| Error::Config {
                 msg: "failed to initialize TLS backend".to_string(),
             })?;
 
@@ -669,9 +658,6 @@ impl CrossrefBuilder {
         })
     }
 }
-
-
-
 
 /// Allows iterating of deep page work request
 pub struct WorkListIterator<'a> {
@@ -689,9 +675,9 @@ impl<'a> WorkListIterator<'a> {
     // pub fn into_work_iter(self) -> impl Iterator<Item = Work> + 'a {
     //     self.flat_map(|x| x.items)
     // }
-// }
-// impl<'a> Iterator for WorkListIterator<'a> {
-        // type Item = WorkList;
+    // }
+    // impl<'a> Iterator for WorkListIterator<'a> {
+    // type Item = WorkList;
 
     pub async fn process(&mut self) -> Vec<WorkList> {
         let mut ret = vec![];

@@ -332,7 +332,7 @@ struct Opts {
     client_opts: ClientOpts,
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::try_init()?;
     let app = App::from_args();
 

@@ -243,11 +243,11 @@ impl FromStr for Order {
 }
 
 impl CrossrefQueryParam for Order {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         Cow::Borrowed("order")
     }
 
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         Some(Cow::Borrowed(self.as_str()))
     }
 }
@@ -370,11 +370,11 @@ impl FromStr for Sort {
 }
 
 impl CrossrefQueryParam for Sort {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         Cow::Borrowed("sort")
     }
 
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         Some(Cow::Borrowed(self.as_str()))
     }
 }
@@ -399,7 +399,7 @@ pub enum ResultControl {
 }
 
 impl CrossrefQueryParam for ResultControl {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         match self {
             ResultControl::Rows(_) => Cow::Borrowed("rows"),
             ResultControl::Offset(_) => Cow::Borrowed("offset"),
@@ -408,7 +408,7 @@ impl CrossrefQueryParam for ResultControl {
         }
     }
 
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         match self {
             ResultControl::Rows(r) | ResultControl::Offset(r) | ResultControl::Sample(r) => {
                 Some(Cow::Owned(r.to_string()))
@@ -519,12 +519,12 @@ pub trait Filter: ParamFragment {}
 
 impl<T: Filter> CrossrefQueryParam for Vec<T> {
     /// always use `filter` as the key
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         Cow::Borrowed("filter")
     }
 
     /// filters are multi value and values are concat with `,`
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         Some(Cow::Owned(
             self.iter()
                 .map(ParamFragment::fragment)
@@ -537,13 +537,13 @@ impl<T: Filter> CrossrefQueryParam for Vec<T> {
 /// represents a key value pair inside a multi value query string parameter
 pub trait ParamFragment {
     /// the key, or name, of the fragment
-    fn key(&self) -> Cow<str>;
+    fn key(&self) -> Cow<'_, str>;
 
     /// the value of the fragment, if any
-    fn value(&self) -> Option<Cow<str>>;
+    fn value(&self) -> Option<Cow<'_, str>>;
 
     /// key and value are concat using `:`
-    fn fragment(&self) -> Cow<str> {
+    fn fragment(&self) -> Cow<'_, str> {
         if let Some(val) = self.value() {
             Cow::Owned(format!("{}:{}", self.key(), val))
         } else {
@@ -555,11 +555,11 @@ pub trait ParamFragment {
 /// a trait used to capture parameters for the query string of the crossref api
 pub trait CrossrefQueryParam {
     /// the key name of the parameter in the query string
-    fn param_key(&self) -> Cow<str>;
+    fn param_key(&self) -> Cow<'_, str>;
     /// the value of the parameter, if any
-    fn param_value(&self) -> Option<Cow<str>>;
+    fn param_value(&self) -> Option<Cow<'_, str>>;
     /// constructs the full parameter for the query string by combining the key and value
-    fn param(&self) -> Cow<str> {
+    fn param(&self) -> Cow<'_, str> {
         if let Some(val) = self.param_value() {
             Cow::Owned(format!("{}={}", self.param_key(), val))
         } else {
@@ -569,11 +569,11 @@ pub trait CrossrefQueryParam {
 }
 
 impl<T: AsRef<str>> CrossrefQueryParam for (T, T) {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.0.as_ref())
     }
 
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         Some(Cow::Borrowed(self.1.as_ref()))
     }
 }

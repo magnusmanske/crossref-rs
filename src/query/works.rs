@@ -232,11 +232,11 @@ impl WorksFilter {
 }
 
 impl ParamFragment for WorksFilter {
-    fn key(&self) -> Cow<str> {
+    fn key(&self) -> Cow<'_, str> {
         Cow::Borrowed(self.name())
     }
 
-    fn value(&self) -> Option<Cow<str>> {
+    fn value(&self) -> Option<Cow<'_, str>> {
         match self {
             WorksFilter::Funder(s)
             | WorksFilter::Location(s)
@@ -371,10 +371,10 @@ impl FieldQuery {
 }
 
 impl CrossrefQueryParam for FieldQuery {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.name)
     }
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         Some(Cow::Owned(format_query(&self.value)))
     }
 }
@@ -418,7 +418,7 @@ impl Default for WorkResultControl {
 }
 
 impl CrossrefQueryParam for WorkResultControl {
-    fn param_key(&self) -> Cow<str> {
+    fn param_key(&self) -> Cow<'_, str> {
         match self {
             WorkResultControl::Standard(s) => s.param_key(),
             WorkResultControl::Cursor { token, .. } => Cow::Owned(format!(
@@ -428,7 +428,7 @@ impl CrossrefQueryParam for WorkResultControl {
         }
     }
 
-    fn param_value(&self) -> Option<Cow<str>> {
+    fn param_value(&self) -> Option<Cow<'_, str>> {
         match self {
             WorkResultControl::Standard(s) => s.param_value(),
             WorkResultControl::Cursor { rows, .. } => match rows {

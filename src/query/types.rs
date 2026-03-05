@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 use crate::query::works::{WorksCombiner, WorksFilter, WorksIdentQuery, WorksQuery};
 use crate::query::{Component, CrossrefQuery, CrossrefRoute, ResourceComponent};
 use serde::{Deserialize, Serialize};
@@ -142,9 +142,9 @@ impl FromStr for Type {
             "book-series" => Ok(Type::BookSeries),
             "edited-book" => Ok(Type::EditedBook),
             "standard-series" => Ok(Type::StandardSeries),
-            name => Err(Error::from(ErrorKind::InvalidTypeName {
+            name => Err(Error::InvalidTypeName {
                 name: name.to_string(),
-            })),
+            }),
         }
     }
 }
