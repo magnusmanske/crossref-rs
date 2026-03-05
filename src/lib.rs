@@ -267,7 +267,7 @@ use crate::response::{MessageType, Prefix};
 use async_trait::async_trait;
 use reqwest::{self, Client};
 use std::iter::FlatMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 macro_rules! get_item {
     ($ident:ident, $value:expr, $got:expr) => {
@@ -305,7 +305,8 @@ pub struct Crossref {
     /// use another base url than `api.crossref.org`
     pub base_url: String,
     /// the reqwest client that handles the requests
-    pub client: Rc<Client>,
+    /// the reqwest client that handles the requests
+    pub client: Arc<Client>,
 }
 
 impl Crossref {
@@ -654,7 +655,7 @@ impl CrossrefBuilder {
             base_url: self
                 .base_url
                 .unwrap_or_else(|| Crossref::BASE_URL.to_string()),
-            client: Rc::new(client),
+            client: Arc::new(client),
         })
     }
 }
