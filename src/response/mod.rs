@@ -39,11 +39,7 @@ macro_rules! impl_msg_helper {
     $(
         /// checks if the message holds the variant
         pub fn $name(&self) -> bool {
-           if let Some(Message::$ident(_)) = &self.message {
-               true
-           } else {
-               false
-           }
+           matches!(&self.message, Some(Message::$ident(_)))
         }
     )+
     };
@@ -68,10 +64,7 @@ impl Response {
 
     /// checks whether the `message` holds a variant of `RouteNotFound`
     pub fn is_route_not_found(&self) -> bool {
-        match &self.message {
-            Some(Message::RouteNotFound) => true,
-            _ => false,
-        }
+        matches!(&self.message, Some(Message::RouteNotFound))
     }
 }
 
