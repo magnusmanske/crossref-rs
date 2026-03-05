@@ -157,8 +157,8 @@ impl DateParts {
         fn naive(v: &[Option<u32>]) -> Option<NaiveDate> {
             match v.len() {
                 0 => None,
-                1 => Some(NaiveDate::from_ymd_opt(v[0]? as i32, 0, 0)?),
-                2 => Some(NaiveDate::from_ymd_opt(v[0]? as i32, v[1]?, 0)?),
+                1 => Some(NaiveDate::from_ymd_opt(v[0]? as i32, 1, 1)?),
+                2 => Some(NaiveDate::from_ymd_opt(v[0]? as i32, v[1]?, 1)?),
                 3 => Some(NaiveDate::from_ymd_opt(v[0]? as i32, v[1]?, v[2]?)?),
                 _ => None,
             }
@@ -448,6 +448,7 @@ pub struct Review {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Datelike;
     use serde_json::*;
     #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
     struct Demo {
@@ -461,6 +462,39 @@ mod tests {
         let expected = r##"{"date_parts":[[2017,10,11]]}"##;
         assert_eq!(expected, &to_string(&demo).unwrap());
         assert_eq!(demo, from_str::<Demo>(expected).unwrap());
+    }
+
+    #[test]
+    fn date_parts_year_only() {
+        // Year-only date parts like [[2004]] should produce a valid date
+        let parts = DateParts(vec![vec![Some(2004)]]);
+        let date = parts.as_date();
+        assert!(
+            date.is_some(),
+            "Year-only DateParts should produce a valid DateField"
+        );
+        if let Some(DateField::Single(d)) = date {
+            assert_eq!(d.year(), 2004);
+        } else {
+            panic!("Expected DateField::Single");
+        }
+    }
+
+    #[test]
+    fn date_parts_year_month_only() {
+        // Year+month date parts like [[2004, 6]] should produce a valid date
+        let parts = DateParts(vec![vec![Some(2004), Some(6)]]);
+        let date = parts.as_date();
+        assert!(
+            date.is_some(),
+            "Year+month DateParts should produce a valid DateField"
+        );
+        if let Some(DateField::Single(d)) = date {
+            assert_eq!(d.year(), 2004);
+            assert_eq!(d.month(), 6);
+        } else {
+            panic!("Expected DateField::Single");
+        }
     }
 
     #[test]
