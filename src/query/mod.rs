@@ -618,23 +618,31 @@ pub trait CrossrefQuery: CrossrefRoute + Clone {
     }
 }
 
-/// formats the topic for crossref by replacing all whitespaces whit `+`
+/// formats the topic for crossref by replacing all whitespaces with `+`
 pub(crate) fn format_query<T: AsRef<str>>(topic: T) -> String {
-    topic
-        .as_ref()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join("+")
+    let mut result = String::new();
+    for (i, word) in topic.as_ref().split_whitespace().enumerate() {
+        if i > 0 {
+            result.push('+');
+        }
+        result.push_str(word);
+    }
+    result
 }
 
 /// formats the individual topics of a query into the format crossref expects
 /// returns a single String consisting of all words combined by '+'
 pub(crate) fn format_queries<T: AsRef<str>>(topics: &[T]) -> String {
-    topics
-        .iter()
-        .map(format_query)
-        .collect::<Vec<_>>()
-        .join("+")
+    let mut result = String::new();
+    for topic in topics {
+        for word in topic.as_ref().split_whitespace() {
+            if !result.is_empty() {
+                result.push('+');
+            }
+            result.push_str(word);
+        }
+    }
+    result
 }
 
 #[cfg(test)]
@@ -667,5 +675,20 @@ mod tests {
     fn result_control_sample_param() {
         let rc = ResultControl::Sample(10);
         assert_eq!(rc.param(), "sample=10");
+    }
+
+    #[test]
+    fn format_query_replaces_whitespace() {
+        assert_eq!(format_query("machine learning"), "machine+learning");
+        assert_eq!(format_query("single"), "single");
+        assert_eq!(format_query("a  b  c"), "a+b+c");
+    }
+
+    #[test]
+    fn format_queries_joins_topics() {
+        assert_eq!(
+            format_queries(&["machine learning", "deep nets"]),
+            "machine+learning+deep+nets"
+        );
     }
 }
