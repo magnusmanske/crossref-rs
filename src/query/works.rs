@@ -526,9 +526,9 @@ impl WorkListQuery {
     }
 }
 
-impl Into<WorkListQuery> for WorksQuery {
-    fn into(self) -> WorkListQuery {
-        WorkListQuery::Works(self)
+impl From<WorksQuery> for WorkListQuery {
+    fn from(query: WorksQuery) -> WorkListQuery {
+        WorkListQuery::Works(query)
     }
 }
 

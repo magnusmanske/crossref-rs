@@ -238,11 +238,11 @@ pub struct CrossrefType {
     pub label: String,
 }
 
-impl Into<CrossrefType> for crate::query::types::Type {
-    fn into(self) -> CrossrefType {
+impl From<crate::query::types::Type> for CrossrefType {
+    fn from(t: crate::query::types::Type) -> CrossrefType {
         CrossrefType {
-            id: self.id().to_string(),
-            label: self.label().to_string(),
+            id: t.id().to_string(),
+            label: t.label().to_string(),
         }
     }
 }
