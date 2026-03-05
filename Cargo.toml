@@ -20,16 +20,14 @@ path = "src/crossref.rs"
 required-features = ["cli"]
 
 [dependencies]
-reqwest = { version = "0.12", features = ["blocking"] }
+reqwest = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 structopt = { version = "0.3", optional = true }
-url = "2.5"
 pretty_env_logger = { version = "0.5", optional = true }
 tokio = { version = "^1", features = ["full", "rt-multi-thread"] }
-async-trait = "*"
 
 [features]
 cli = ["structopt", "pretty_env_logger"]
