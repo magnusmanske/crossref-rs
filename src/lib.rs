@@ -666,14 +666,7 @@ pub struct WorkListIterator<'a> {
     finish_next_iteration: bool,
 }
 impl<'a> WorkListIterator<'a> {
-    /// convenience method to create a `WorkIterator`
-    // pub fn into_work_iter(self) -> impl Iterator<Item = Work> + 'a {
-    //     self.flat_map(|x| x.items)
-    // }
-    // }
-    // impl<'a> Iterator for WorkListIterator<'a> {
-    // type Item = WorkList;
-
+    /// Process all remaining items and collect them into a `Vec<WorkList>`
     pub async fn process(&mut self) -> Vec<WorkList> {
         let mut ret = vec![];
         while let Some(x) = self.next().await {

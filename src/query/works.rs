@@ -428,10 +428,9 @@ impl CrossrefQueryParam for WorkResultControl {
     fn param_value(&self) -> Option<Cow<'_, str>> {
         match self {
             WorkResultControl::Standard(s) => s.param_value(),
-            WorkResultControl::Cursor { rows, .. } => match rows {
-                Some(r) => Some(Cow::Owned(format!("rows={}", r))),
-                _ => None,
-            },
+            WorkResultControl::Cursor { rows, .. } => {
+                rows.map(|r| Cow::Owned(format!("rows={}", r)))
+            }
         }
     }
 }
@@ -711,7 +710,7 @@ impl WorksQuery {
     /// ```
     /// add a bunch of free form query terms
     pub fn field_queries(mut self, queries: Vec<FieldQuery>) -> Self {
-        self.field_queries.extend(queries.into_iter());
+        self.field_queries.extend(queries);
         self
     }
 
