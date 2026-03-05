@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::query::works::{WorksCombiner, WorksFilter, WorksIdentQuery, WorksQuery};
+use crate::query::works::{WorksCombiner, WorksIdentQuery};
 use crate::query::{Component, CrossrefQuery, CrossrefRoute, ResourceComponent};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -179,9 +179,8 @@ impl CrossrefQuery for Types {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::*;
 
-    //    #[test]
+    #[test]
     fn test_types() {
         let section = r#"{
     "id": "book-section",

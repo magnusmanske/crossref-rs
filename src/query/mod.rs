@@ -1,17 +1,16 @@
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::query::facet::FacetCount;
 pub use crate::query::funders::{Funders, FundersQuery};
 pub use crate::query::journals::Journals;
 pub use crate::query::members::{Members, MembersQuery};
 pub use crate::query::prefixes::Prefixes;
 pub use crate::query::types::{Type, Types};
-use crate::query::works::{Works, WorksFilter};
+use crate::query::works::Works;
 pub use crate::query::works::{WorksIdentQuery, WorksQuery};
-use chrono::NaiveDate;
-use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt;
+#[cfg(feature = "cli")]
 use std::str::FromStr;
 #[cfg(feature = "cli")]
 use structopt::StructOpt;

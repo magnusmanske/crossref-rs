@@ -1,10 +1,8 @@
-use crate::query::facet::Facet;
-use crate::query::facet::FacetCount;
 use crate::query::Visibility;
 use crate::response::work::*;
 use serde::de::Deserializer;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_value, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt;
 

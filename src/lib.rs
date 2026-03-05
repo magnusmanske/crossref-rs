@@ -230,7 +230,6 @@
 
 #![deny(warnings)]
 #![deny(missing_docs)]
-#![allow(unused)]
 
 mod error;
 /// provides types to construct a specific query
@@ -262,11 +261,9 @@ pub use self::response::{
 
 pub(crate) use self::response::{Message, Response};
 
-use crate::query::{FundersQuery, MembersQuery, ResourceComponent};
+use crate::query::{FundersQuery, MembersQuery};
 use crate::response::{MessageType, Prefix};
-use async_trait::async_trait;
 use reqwest::{self, Client};
-use std::iter::FlatMap;
 use std::sync::Arc;
 
 macro_rules! get_item {
@@ -470,7 +467,6 @@ impl Crossref {
         WorkListIterator {
             query: query.into(),
             client: self,
-            index: 0,
             finish_next_iteration: false,
         }
         .process()
@@ -666,8 +662,6 @@ pub struct WorkListIterator<'a> {
     query: WorkListQuery,
     /// performs each request
     client: &'a Crossref,
-    /// stores how many results already retrieved
-    index: usize,
     /// whether the iterator should finish next iteration
     finish_next_iteration: bool,
 }

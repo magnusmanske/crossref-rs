@@ -1,8 +1,6 @@
 // see https://github.com/Crossref/rest-api-doc/blob/master/api_format.md
 
-use crate::error::Result;
 use crate::response::{FacetMap, QueryResponse};
-use crate::{Crossref, WorkListQuery, WorksQuery};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -626,6 +624,6 @@ mod tests {
   }
 "##;
 
-        let work: Work = from_str(work_str).unwrap();
+        let _work: Work = from_str(work_str).unwrap();
     }
 }
