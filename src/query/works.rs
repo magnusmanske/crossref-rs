@@ -219,7 +219,7 @@ impl WorksFilter {
             WorksFilter::AlternativeId => "alternative-id",
             WorksFilter::ArticleNumber => "article-number",
             WorksFilter::HasAbstract => "has-abstract",
-            WorksFilter::HasClinicalTrialNumber => "has-clinical-trial-number	",
+            WorksFilter::HasClinicalTrialNumber => "has-clinical-trial-number",
             WorksFilter::ContentDomain(_) => "content-domain",
             WorksFilter::HasContentDomain => "has-content-domain",
             WorksFilter::HasDomainRestriction => "has-domain-restriction",
@@ -912,5 +912,41 @@ mod tests {
         let works = Works::doi("10.1037/0003-066X.59.1.29");
 
         assert_eq!("/works/10.1037/0003-066X.59.1.29", &works.route().unwrap())
+    }
+
+    #[test]
+    fn filter_names_have_no_whitespace() {
+        // Ensure no filter name contains trailing whitespace (e.g. tab characters)
+        let filters = vec![
+            WorksFilter::HasFunder,
+            WorksFilter::HasLicense,
+            WorksFilter::HasFullText,
+            WorksFilter::HasReferences,
+            WorksFilter::HasArchive,
+            WorksFilter::HasOrcid,
+            WorksFilter::HasAuthenticatedOrcid,
+            WorksFilter::IsUpdate,
+            WorksFilter::HasUpdatePolicy,
+            WorksFilter::HasAssertion,
+            WorksFilter::HasAffiliation,
+            WorksFilter::AlternativeId,
+            WorksFilter::ArticleNumber,
+            WorksFilter::HasAbstract,
+            WorksFilter::HasClinicalTrialNumber,
+            WorksFilter::HasContentDomain,
+            WorksFilter::HasDomainRestriction,
+            WorksFilter::HasRelation,
+            WorksFilter::RelationType,
+            WorksFilter::RelationObject,
+        ];
+        for f in &filters {
+            let name = f.name();
+            assert_eq!(
+                name,
+                name.trim(),
+                "Filter name {:?} contains leading/trailing whitespace",
+                name
+            );
+        }
     }
 }
