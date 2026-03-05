@@ -403,7 +403,7 @@ impl CrossrefQueryParam for ResultControl {
         match self {
             ResultControl::Rows(_) => Cow::Borrowed("rows"),
             ResultControl::Offset(_) => Cow::Borrowed("offset"),
-            ResultControl::RowsOffset { rows, .. } => Cow::Owned(format!("rows={}", rows)),
+            ResultControl::RowsOffset { .. } => Cow::Borrowed("rows"),
             ResultControl::Sample(_) => Cow::Borrowed("sample"),
         }
     }
@@ -413,8 +413,21 @@ impl CrossrefQueryParam for ResultControl {
             ResultControl::Rows(r) | ResultControl::Offset(r) | ResultControl::Sample(r) => {
                 Some(Cow::Owned(r.to_string()))
             }
-            ResultControl::RowsOffset { offset, .. } => {
-                Some(Cow::Owned(format!("offset={}", offset)))
+            ResultControl::RowsOffset { rows, .. } => Some(Cow::Owned(rows.to_string())),
+        }
+    }
+
+    fn param(&self) -> Cow<'_, str> {
+        match self {
+            ResultControl::RowsOffset { rows, offset } => {
+                Cow::Owned(format!("rows={}&offset={}", rows, offset))
+            }
+            _ => {
+                if let Some(val) = self.param_value() {
+                    Cow::Owned(format!("{}={}", self.param_key(), val))
+                } else {
+                    self.param_key()
+                }
             }
         }
     }
@@ -623,4 +636,37 @@ pub(crate) fn format_queries<T: AsRef<str>>(topics: &[T]) -> String {
         .map(format_query)
         .collect::<Vec<_>>()
         .join("+")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn result_control_rows_offset_param() {
+        let rc = ResultControl::RowsOffset {
+            rows: 10,
+            offset: 5,
+        };
+        let param = rc.param();
+        assert_eq!(param, "rows=10&offset=5");
+    }
+
+    #[test]
+    fn result_control_rows_param() {
+        let rc = ResultControl::Rows(25);
+        assert_eq!(rc.param(), "rows=25");
+    }
+
+    #[test]
+    fn result_control_offset_param() {
+        let rc = ResultControl::Offset(100);
+        assert_eq!(rc.param(), "offset=100");
+    }
+
+    #[test]
+    fn result_control_sample_param() {
+        let rc = ResultControl::Sample(10);
+        assert_eq!(rc.param(), "sample=10");
+    }
 }
