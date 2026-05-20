@@ -323,13 +323,6 @@ impl Crossref {
         self
     }
 
-    /// Overrides the API base URL. Lets tests redirect every request
-    /// to a wiremock server: `.base_url(mock.uri())`.
-    pub fn base_url(mut self, url: impl Into<String>) -> Self {
-        self.base_url = url.into();
-        self
-    }
-
     // generate all functions to query combined endpoints
     impl_combined_works_query!(funder_works Funders, member_works Members,
     type_works Types, journal_works Journals, prefix_works Prefixes,);
@@ -628,6 +621,13 @@ impl CrossrefBuilder {
     /// set a crossref plus service  API token
     pub fn token(mut self, token: &str) -> Self {
         self.plus_token = Some(token.to_string());
+        self
+    }
+
+    /// Overrides the API base URL. Lets tests redirect every request
+    /// to a wiremock server: `.base_url(mock.uri())`.
+    pub fn base_url(mut self, url: impl Into<String>) -> Self {
+        self.base_url = Some(url.into());
         self
     }
 
