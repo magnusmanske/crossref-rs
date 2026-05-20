@@ -314,15 +314,6 @@ impl Crossref {
         CrossrefBuilder::new()
     }
 
-    /// Replaces the internal `reqwest::Client`. Useful for sharing a
-    /// connection pool, embedding middleware (retry layers, tracing,
-    /// custom user-agent), or in tests that want fast-fail timeouts.
-    /// All other configuration set so far is preserved.
-    pub fn http_client(mut self, client: reqwest::Client) -> Self {
-        self.http_client = client;
-        self
-    }
-
     // generate all functions to query combined endpoints
     impl_combined_works_query!(funder_works Funders, member_works Members,
     type_works Types, journal_works Journals, prefix_works Prefixes,);
@@ -595,6 +586,8 @@ pub struct CrossrefBuilder {
     plus_token: Option<String>,
     /// use a different base url than `Crossref::BASE_URL` https://api.crossref.org
     base_url: Option<String>,
+    /// optional caller-supplied `reqwest::Client` that overrides the one built from headers
+    http_client: Option<Client>,
 }
 
 impl CrossrefBuilder {
@@ -631,41 +624,57 @@ impl CrossrefBuilder {
         self
     }
 
+    /// Replaces the internal `reqwest::Client`. Useful for sharing a
+    /// connection pool, embedding middleware (retry layers, tracing,
+    /// custom user-agent), or in tests that want fast-fail timeouts.
+    /// When set, the `polite`, `user_agent`, and `token` headers are
+    /// not applied — the caller is responsible for any headers they
+    /// want on the provided client.
+    pub fn http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = Some(client);
+        self
+    }
+
     /// Returns a `Crossref` that uses this `CrossrefBuilder` configuration.
     /// # Errors
     ///
     /// This will fail if TLS backend cannot be initialized see [reqwest::ClientBuilder::build]
     pub fn build(self) -> Result<Crossref> {
-        use reqwest::header;
-        let mut headers = header::HeaderMap::new();
-        if let Some(agent) = &self.user_agent {
-            headers.insert(
-                header::USER_AGENT,
-                header::HeaderValue::from_str(agent).map_err(|_| Error::Config {
-                    msg: format!("failed to create User Agent header for `{}`", agent),
-                })?,
-            );
-        }
-        if let Some(token) = &self.plus_token {
-            headers.insert(
-                header::AUTHORIZATION,
-                header::HeaderValue::from_str(token).map_err(|_| Error::Config {
-                    msg: format!("failed to create AUTHORIZATION header for `{}`", token),
-                })?,
-            );
-        }
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .map_err(|_| Error::Config {
-                msg: "failed to initialize TLS backend".to_string(),
-            })?;
+        let http_client = match self.http_client {
+            Some(client) => client,
+            None => {
+                use reqwest::header;
+                let mut headers = header::HeaderMap::new();
+                if let Some(agent) = &self.user_agent {
+                    headers.insert(
+                        header::USER_AGENT,
+                        header::HeaderValue::from_str(agent).map_err(|_| Error::Config {
+                            msg: format!("failed to create User Agent header for `{}`", agent),
+                        })?,
+                    );
+                }
+                if let Some(token) = &self.plus_token {
+                    headers.insert(
+                        header::AUTHORIZATION,
+                        header::HeaderValue::from_str(token).map_err(|_| Error::Config {
+                            msg: format!("failed to create AUTHORIZATION header for `{}`", token),
+                        })?,
+                    );
+                }
+                reqwest::Client::builder()
+                    .default_headers(headers)
+                    .build()
+                    .map_err(|_| Error::Config {
+                        msg: "failed to initialize TLS backend".to_string(),
+                    })?
+            }
+        };
 
         Ok(Crossref {
             base_url: self
                 .base_url
                 .unwrap_or_else(|| Crossref::BASE_URL.to_string()),
-            http_client: client,
+            http_client,
         })
     }
 }
