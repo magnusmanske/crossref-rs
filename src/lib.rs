@@ -264,7 +264,6 @@ pub(crate) use self::response::{Message, Response};
 use crate::query::{FundersQuery, MembersQuery};
 use crate::response::{MessageType, Prefix};
 use reqwest::{self, Client};
-use std::sync::Arc;
 
 macro_rules! get_item {
     ($ident:ident, $value:expr, $got:expr) => {
@@ -302,8 +301,7 @@ pub struct Crossref {
     /// use another base url than `api.crossref.org`
     pub base_url: String,
     /// the reqwest client that handles the requests
-    /// the reqwest client that handles the requests
-    pub client: Arc<Client>,
+    pub http_client: Client,
 }
 
 impl Crossref {
@@ -314,6 +312,22 @@ impl Crossref {
     /// This is the same as `Crossref::builder()`.
     pub fn builder() -> CrossrefBuilder {
         CrossrefBuilder::new()
+    }
+
+    /// Replaces the internal `reqwest::Client`. Useful for sharing a
+    /// connection pool, embedding middleware (retry layers, tracing,
+    /// custom user-agent), or in tests that want fast-fail timeouts.
+    /// All other configuration set so far is preserved.
+    pub fn http_client(mut self, client: reqwest::Client) -> Self {
+        self.http_client = client;
+        self
+    }
+
+    /// Overrides the API base URL. Lets tests redirect every request
+    /// to a wiremock server: `.base_url(mock.uri())`.
+    pub fn base_url(mut self, url: impl Into<String>) -> Self {
+        self.base_url = url.into();
+        self
     }
 
     // generate all functions to query combined endpoints
@@ -329,7 +343,7 @@ impl Crossref {
     /// Fails if there was an error in reqwest executing the request [::reqwest::RequestBuilder::send]
     async fn get_response<T: CrossrefQuery>(&self, query: &T) -> Result<Response> {
         let url = query.to_url(&self.base_url)?;
-        let resp = self.client.get(&url).send().await?.text().await?;
+        let resp = self.http_client.get(&url).send().await?.text().await?;
         if resp.starts_with("Resource not found") {
             Err(Error::ResourceNotFound {
                 resource: Box::new(query.clone().resource_component()),
@@ -651,7 +665,7 @@ impl CrossrefBuilder {
             base_url: self
                 .base_url
                 .unwrap_or_else(|| Crossref::BASE_URL.to_string()),
-            client: Arc::new(client),
+            http_client: client,
         })
     }
 }
