@@ -20,7 +20,7 @@ path = "src/crossref.rs"
 required-features = ["cli"]
 
 [dependencies]
-reqwest = "0.12"
+reqwest = "0.13"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1"
 serde_json = "1.0"
